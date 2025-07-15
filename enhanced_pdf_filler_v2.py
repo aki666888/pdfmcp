@@ -121,23 +121,22 @@ class EnhancedPDFFillerV2:
                             if box['page'] == page_num:
                                 # Special handling for multi-line fields
                                 if field_type == 'Patient Symptoms and Signs':
-                                    # Symptoms field - use very small font to fit in 38px height
+                                    # Symptoms field - use font size 8 for better fitting
                                     box_width = box['x2'] - box['x1']
                                     box_height = box['y2'] - box['y1']
                                     print(f"DEBUG: Symptoms box dimensions: {box_width}x{box_height}", file=sys.stderr)
-                                    print(f"DEBUG: Attempting to fill symptoms with {len(str(value))} characters", file=sys.stderr)
+                                    print(f"DEBUG: Symptoms value: {value[:100]}...", file=sys.stderr)
                                     
-                                    # Use manual text placement for better control
-                                    # With 38px height and font size 7, we can fit about 4 lines
-                                    font_size = 7
-                                    line_height = 8
+                                    # Manual text placement for 38px height box
+                                    font_size = 8
+                                    line_height = 9
                                     padding = 3
                                     
                                     # Wrap text to fit width
                                     lines = self._wrap_text(str(value), box_width - (padding * 2), font_size)
                                     print(f"DEBUG: Wrapped into {len(lines)} lines", file=sys.stderr)
                                     
-                                    # Calculate how many lines we can actually fit
+                                    # Calculate how many lines we can fit (38px height, 8pt font)
                                     max_lines = int((box_height - (padding * 2)) / line_height)
                                     print(f"DEBUG: Can fit {max_lines} lines in box", file=sys.stderr)
                                     
@@ -151,10 +150,7 @@ class EnhancedPDFFillerV2:
                                             color=(0, 0, 0)
                                         )
                                         y_pos += line_height
-                                    
-                                    # If text was truncated, add ellipsis
-                                    if len(lines) > max_lines:
-                                        print(f"DEBUG: Text truncated - {len(lines) - max_lines} lines omitted", file=sys.stderr)
+                                        print(f"DEBUG: Drew line {i+1}: {line[:50]}...", file=sys.stderr)
                                 elif field_type == 'medication':
                                     # Medication field - use smaller font for more text
                                     rect = fitz.Rect(box['x1'] + 2, box['y1'] + 2, box['x2'] - 2, box['y2'] - 2)
@@ -234,8 +230,7 @@ class EnhancedPDFFillerV2:
         lines = []
         current_line = []
         
-        # Better character width approximation
-        # For smaller fonts (7-8pt), character width is about 0.4 of font size
+        # Better character width for font size 8
         char_width = font_size * 0.4
         max_chars = int(max_width / char_width)
         

@@ -1,106 +1,92 @@
 # PharmaCare MACS Form Filler
 
-An automated PDF form filler for PharmaCare MACS forms, designed to work with Claude Desktop through MCP (Model Context Protocol).
+Automated PDF form filling system for PharmaCare MACS forms using Claude Desktop and OpenRPC.
 
-## Features
+## Quick Setup (Windows + Claude Desktop)
 
-- Automatically fills patient information, conditions, and prescriptions
-- Works with static PDF forms using overlay approach
-- Numbered condition boxes for easy selection
-- Text wrapping for long medication and symptom descriptions
-- Integration with Claude Desktop via OpenRPC MCP server
+### 1. Install Prerequisites
+- Python 3.12 or higher
+- Node.js (for OpenRPC)
+- Claude Desktop
 
-## Requirements
-
-- Python 3.12+
-- PyMuPDF (fitz)
-- MCP SDK
-
-## Installation
-
-1. Clone this repository:
+### 2. Clone Repository
 ```bash
 git clone https://github.com/aki666888/pdfmcp.git
 cd pdfmcp
 ```
 
-2. Install required Python packages:
-```bash
-pip install PyMuPDF mcp
-```
-
-3. Configure Claude Desktop:
-Add the following to your `claude_desktop_config.json`:
-
+### 3. Configure Claude Desktop
+Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 ```json
-"pharmacare-form": {
-  "command": "C:\\Program Files\\Python312\\python.exe",
-  "args": ["C:\\mcp-servers\\pharmacare-form\\simple_mcp_server.py"],
-  "env": {
-    "PYTHONUNBUFFERED": "1"
+{
+  "mcpServers": {
+    "openrpc": {
+      "command": "npx",
+      "args": ["-y", "@open-rpc/server-js"],
+      "env": {}
+    }
   }
-},
-"openrpc": {
-  "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-openrpc", "http://localhost:8080"]
 }
 ```
 
-## Usage
-
-1. Start the JSON-RPC server:
+### 4. Start JSON-RPC Server
+Double-click `start_json_rpc_server.bat` or run:
 ```bash
-python json_rpc_server.py
-```
-Or use the batch file:
-```bash
-start_json_rpc_server.bat
+"C:\Program Files\Python312\python.exe" json_rpc_server.py
 ```
 
-2. In Claude Desktop, upload a prescription image and specify the condition
+### 5. Restart Claude Desktop
+Completely quit and restart Claude Desktop.
 
-3. The form will be automatically filled and saved to `C:/forms/`
+## Usage in Claude Desktop
 
-## File Structure
-
-- `enhanced_pdf_filler_v2.py` - Core PDF filling logic with numbered condition boxes
-- `form_field_mapper_v3.py` - GUI tool for mapping form fields
-- `json_rpc_server.py` - JSON-RPC server for OpenRPC integration
-- `simple_mcp_server.py` - MCP server for Claude Desktop
-- `macs_form_mapping_v3_updated.json` - Field mappings for the PDF form
+Use the RPC tool to fill forms:
+```
+Use RPC to call fillPharmaCareForm at http://localhost:8080 with:
+{
+  "patient_name": "Smith, John",
+  "phn": "9876543210", 
+  "phone": "(250) 555-1234",
+  "condition_numbers": [16],
+  "symptoms": "Athlete's foot with itching and redness",
+  "diagnosis": "Tinea pedis",
+  "medication": "Clotrimazole 1% cream, apply twice daily"
+}
+```
 
 ## Condition Box Numbers
+1. Contraception
+2. Acne
+3. Allergic rhinitis
+4. Conjunctivitis
+5-9. Various Dermatitis types
+10. Dysmenorrhea
+11. Dyspepsia
+12-16. Fungal infections
+17. GERD
+18. Headache
+19. Hemorrhoids
+20. Herpes labialis
+21-23. Infections
+24. Insect bites
+25. Intertrigo
+26. Musculoskeletal pain
+27. Nausea/Vomiting
+28. Oral thrush
+29. Pinworms
+30. UTI
 
-- Box 1: Contraception
-- Box 2: Acne
-- Box 3: Allergic rhinitis
-- Box 4: Conjunctivitis
-- Box 6: Dermatitis - allergic/contact
-- Box 7: Dermatitis - atopic
-- Box 8: Dermatitis - diaper rash
-- Box 9: Dermatitis - seborrheic
-- Box 10: Dysmenorrhea
-- Box 11: Dyspepsia
-- Box 12: Fungal infections
-- Box 13: Onychomycosis
-- Box 14: Tinea corporis infection
-- Box 15: Tinea cruris infection
-- Box 16: Tinea pedis infection
-- Box 17: Gastroesophageal reflux disease
-- Box 18: Headache
-- Box 19: Nicotine dependence
-- Box 20: Hemorrhoids
-- Box 21: Herpes labialis
-- Box 22: Impetigo
-- Box 23: Oral ulcers
-- Box 24: Oropharyngeal candidiasis
-- Box 25: Musculoskeletal pain
-- Box 26: Shingles
-- Box 27: Threadworms or pinworms
-- Box 28: Urinary tract infection
-- Box 29: Urticaria, including insect bites
-- Box 30: Vaginal candidiasis
+## Files
+- `enhanced_pdf_filler_v2.py` - PDF filling logic with symptoms fix
+- `form_field_mapper_v3.py` - GUI tool for mapping fields
+- `json_rpc_server.py` - JSON-RPC server (port 8080)
+- `blank.pdf` - Template PDF form
+- `macs_form_mapping_v3.json` - Field mappings
 
-## Output Format
+## Creating/Editing Mappings
+Run `run_mapper_v3.bat` to open the mapping tool.
 
-Forms are saved as: `{FirstName}_{YYYYMMDD}_{HHMMSS}.pdf` in `C:/forms/`
+## Architecture
+```
+Claude Desktop → OpenRPC → JSON-RPC Server (8080) → PDF Filler
+```

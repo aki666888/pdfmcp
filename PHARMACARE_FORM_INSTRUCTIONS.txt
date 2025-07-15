@@ -1,0 +1,190 @@
+PHARMACARE MACS FORM FILLER - INSTRUCTIONS (UPDATED FOR OPENRPC)
+================================================================
+
+When I upload an image (screenshot, photo, or document) and mention a condition, you should:
+
+1. Read the image to extract all relevant patient information:
+   - Patient name
+   - Phone number
+   - PHN (Personal Health Number) in the field on the left that says Client , always starts with 9 , its 10 digits)
+   - Date (on the bottom right of the kroll window)
+
+2. Match the condition I mention to the correct box number:
+   - If I say "nail fungus" → Use box 13 (Onychomycosis)
+   - If I say "athlete's foot" → Use box 16 (Tinea pedis)
+   - If I say "UTI" → Use box 28 (Urinary tract infection)
+   - etc.
+
+3. Fill in clinical details based on the condition:
+   - Generate appropriate symptoms for that condition
+   - Add patients signs and symptoms , also add some non pharm advice.
+   - Provide the standard diagnosis
+   - Include appropriate medication with proper formatting
+
+4. Use the OpenRPC MCP tool to fill the form with all extracted and generated information
+
+Example workflow:
+- User: "Here's the patient info [uploads image], this is for nail fungus"
+- You:
+  a. Extract from image: name, PHN (in the field on the left that says Client), phone
+  b. Select box 13 for Onychomycosis
+  c. Add symptoms: "Thickened, discolored toenails..."
+  d. Add medication: "Terbinafine HCl topical. Apply to affected nails twice daily. Quantity: 30. Refills: 0" 
+  e. Call OpenRPC with complete JSON
+
+Always extract from images:
+- Patient demographics (name, PHN, phone)
+- Medication, Directions, Quantity and Refills 
+- Date
+
+Never do like this: "medication": "Terbinafine HCl topical. Apply to affected nails twice daily. [Quantity and refills as per prescription]."
+Always find the quantity by Disp Qty on the right side and refills under Rem Qty (if 0 that means no refills)
+
+HOW TO USE THE OPENRPC MCP SERVER
+----------------------------------
+You have access to a PharmaCare form filler through the OpenRPC MCP server.
+
+MAIN TOOL: openrpc:call_method
+-------------------------------
+Use the openrpc:call_method tool with these parameters:
+{
+  "server_url": "http://localhost:8080",
+  "method_name": "fillPharmaCareForm",
+  "params": {
+    // Your form data goes here
+  }
+}
+
+REQUIRED PARAMS FORMAT:
+{
+  "patient_name": "Last, First",      // Patient's full name
+  "phn": "1234567890",               // 10-digit Personal Health Number
+  "phone": "(250) 555-1234",         // Patient phone number
+  "condition_numbers": [16],         // Array of condition box numbers
+  "symptoms": "Description",         // Patient symptoms and signs and some non pharm advice * ensure to include that
+  "medical_history": "Details",      // Allergies, medications, contraindications
+  "diagnosis": "Clinical diagnosis", // Your diagnosis
+  "medication": "Full details"       // Drug name, sig, mitte, refills + other advice.
+}
+
+CONDITION BOX NUMBERS
+---------------------
+Box 1: Contraception
+Box 2: Acne
+Box 3: Allergic rhinitis
+Box 4: Conjunctivitis
+Box 5: [REMOVED - was Dermatitis header]
+Box 6: Dermatitis - allergic/contact
+Box 7: Dermatitis - atopic
+Box 8: Dermatitis - diaper rash
+Box 9: Dermatitis - seborrheic
+Box 10: Dysmenorrhea
+Box 11: Dyspepsia
+Box 12: Fungal infections
+Box 13: Onychomycosis
+Box 14: Tinea corporis infection
+Box 15: Tinea cruris infection
+Box 16: Tinea pedis infection
+Box 17: Gastroesophageal reflux disease
+Box 18: Headache
+Box 19: Nicotine dependence
+Box 20: Hemorrhoids
+Box 21: Herpes labialis
+Box 22: Impetigo
+Box 23: Oral ulcers
+Box 24: Oropharyngeal candidiasis
+Box 25: Musculoskeletal pain
+Box 26: Shingles
+Box 27: Threadworms or pinworms
+Box 28: Urinary tract infection
+Box 29: Urticaria, including insect bites
+Box 30: Vaginal candidiasis
+
+"medication" must consist the drug name, directions, amount and refills exactly as shown in the image. Below the medication add some more general information about the usage and non pharm measures for the condition. However as the space is less, continue right after the full stop, no need to enter and create spacing.
+
+EXAMPLE 1 - ATHLETE'S FOOT (TINEA PEDIS)
+-----------------------------------------
+Use the openrpc:call_method tool with:
+{
+  "server_url": "http://localhost:8080",
+  "method_name": "fillPharmaCareForm",
+  "params": {
+    "patient_name": "Smith, John",
+    "phn": "9876543210",
+    "phone": "(250) 555-1234",
+    "condition_numbers": [16],
+    "symptoms": "Itchy, red, scaly skin between toes. Peeling on soles of feet. Burning sensation when walking." Apply below cream after washing and drying feet thoroughly. Wear breathable footwear. Change socks daily. Avoid walking barefoot in public areas,
+    "diagnosis": "Tinea pedis (athlete's foot)",
+    "medication": "Clotrimazole 1% cream. Apply BID to affected areas for 4 weeks. Mitte: 30g. Refills: 0\n\n." 
+  }
+}
+
+EXAMPLE 2 - URINARY TRACT INFECTION
+------------------------------------
+Use the openrpc:call_method tool with:
+{
+  "server_url": "http://localhost:8080",
+  "method_name": "fillPharmaCareForm",
+  "params": {
+    "patient_name": "Johnson, Mary",
+    "phn": "9234567890",
+    "phone": "(250) 555-5678",
+    "condition_numbers": [28],
+    "symptoms": "Dysuria, urinary frequency and urgency x 2 days. No fever, no flank pain. Clear urine.", Increase fluid intake. Urinate after intercourse. Avoid irritants.
+       "diagnosis": "Uncomplicated urinary tract infection",
+    "medication": "Nitrofurantoin 100mg PO BID x 5 days. Mitte: 10 tablets. Refills: 0\n\nComplete full course of antibiotics. "
+  }
+}
+
+EXAMPLE 3 - NAIL FUNGUS (ONYCHOMYCOSIS)
+----------------------------------------
+Use the openrpc:call_method tool with:
+{
+  "server_url": "http://localhost:8080",
+  "method_name": "fillPharmaCareForm",
+  "params": {
+    "patient_name": "Isenor, Kristofor",
+    "phn": "9079287260",
+    "phone": "(250) 937-1689",
+    "condition_numbers": [13],
+    "symptoms": "Thickened, discolored toenails with brittle texture. Yellow-brown discoloration of nail plates.", Keep nails clean and dry. Apply to entire nail, cuticle, and surrounding skin. Treatment may take 6-12 months. Wear breathable footwear
+      "diagnosis": "Onychomycosis (nail fungus)",
+    "medication": "Terbinafine HCl topical. Apply to the affected area(s) topically (nails) twice a day. Quantity: 30. Refills: 0\n\  ."
+  }
+}
+
+MEDICATION FORMAT EXAMPLES (exactly as per the image)
+-----------------------------------------------------
+Topical Antifungal:
+"Clotrimazole 1% cream. Apply Twice a day to affected areas x 4 weeks. Mitte: 30g. Refills: 0"
+
+Oral Antibiotic:
+"Nitrofurantoin 100mg PO Twice a day for 5 days. Mitte: 10 tablets. Refills: 0"
+
+Topical Steroid:
+"Hydrocortisone 1% cream. Apply Topically to the Affected areas twice a day for 7 days. Mitte: 15g. Refills: 0"
+
+Antihistamine:
+"Cetirizine 10mg PO. Take One Tablet Orally once daily as needed for allergies. Mitte: 30 tablets. Refills: 2"
+
+Pain med for MSK
+Robaxacet Extra Strength (Acetaminophen/Methocarbamol 500/400mg). Take 1 tablet orally twice a day or as needed. Caution for drowsiness. Mitte: 80
+ tablets. Refills: 0. May cause drowsiness - avoid driving or operating machinery. Do not exceed recommended dose. Take with food to reduce stomach
+ irritation
+
+OUTPUT LOCATION
+---------------
+Forms are saved to: C:/forms/[PatientFirstName]/
+- PDF: MACS_Form_[Name]_[Timestamp].pdf
+- Data: MACS_Form_[Name]_[Timestamp].json
+
+IMPORTANT NOTES
+---------------
+1. Ensure you get all details from the image
+2. Use the MCP server to fill out the form quickly
+3. Include area code in phone numbers
+4. Use the exact information from the image for medication sig, mitte, and refills
+5. Add helpful usage instructions after the medication line
+6. Select all relevant condition box numbers
+7. The server URL is always: http://localhost:8080
+8. The method name is always: fillPharmaCareForm

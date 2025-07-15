@@ -1,0 +1,45 @@
+name: pharmacare-form-filler
+description: PharmaCare MACS Form Filler with MCP integration
+
+tools:
+  - name: fill_pharmacare_form
+    command: "python"
+    args: ["C:\\mcp-servers\\pharmacare-form\\form_filler.py", "{{patient_name}}", "{{condition}}", "{{phn}}", "{{phone}}"]
+    description: "Fill PharmaCare MACS form with patient information"
+    parameters:
+      patient_name:
+        type: string
+        description: "Patient's full name"
+        required: true
+      condition:
+        type: string
+        description: "Medical condition (e.g., headache, acne, uti)"
+        required: false
+      phn:
+        type: string
+        description: "Personal Health Number"
+        required: false
+      phone:
+        type: string
+        description: "Patient's phone number"
+        required: false
+
+  - name: open_blank_form
+    command: "python"
+    args: ["C:\\mcp-servers\\pharmacare-form\\form_filler.py"]
+    description: "Open blank PharmaCare MACS form"
+
+  - name: fill_sample_patient
+    command: "python"
+    args: ["C:\\mcp-servers\\pharmacare-form\\quick_fill.py", "sample"]
+    description: "Fill form with sample patient data"
+
+  - name: save_form_data
+    command: "python"
+    args: ["C:\\mcp-servers\\pharmacare-form\\save_form.py", "{{filename}}"]
+    description: "Save current form data to JSON file"
+    parameters:
+      filename:
+        type: string
+        description: "Output filename for JSON data"
+        required: false

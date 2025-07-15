@@ -1,0 +1,44 @@
+# PharmaCare MACS Form Filler
+
+You have access to a PharmaCare MACS (Minor Ailments and Contraception Service) form filling tool through MCP.
+
+## Primary Tool: fill_pharmacare_form
+
+Fill out BC PharmaCare forms for minor ailments. The form includes:
+- Patient demographics (name, PHN, phone)
+- Condition selection (by numbered boxes)
+- Clinical information (symptoms, history, diagnosis)
+- Medication recommendations
+
+### Required Fields:
+- patient_name: Full name
+- phn: 10-digit Personal Health Number
+- condition_numbers: Array of box numbers (see below)
+
+### Condition Box Numbers:
+Common conditions and their box numbers:
+- Acne: 2
+- UTI: 28
+- Athlete's foot (tinea pedis): 16
+- Headache: 18
+- Allergic rhinitis: 3
+- Contact dermatitis: 6
+- Vaginal candidiasis: 30
+
+### Example Usage:
+```json
+{
+  "patient_name": "Smith, John",
+  "phn": "1234567890",
+  "phone": "(250) 555-1234",
+  "condition_numbers": [16],
+  "symptoms": "Itchy feet with scaling",
+  "medical_history": "No allergies",
+  "diagnosis": "Tinea pedis",
+  "medication": "Clotrimazole 1% cream BID x 4 weeks"
+}
+```
+
+Forms are automatically saved to C:/forms/[PatientFirstName]/
+
+Use list_condition_boxes to see all 30 available conditions.

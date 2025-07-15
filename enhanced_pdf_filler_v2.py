@@ -17,19 +17,8 @@ class EnhancedPDFFillerV2:
         if mapping_file:
             self.mapping_file = mapping_file
         else:
-            # Try different locations in order of preference
-            possible_paths = [
-                r"C:\forms\macs_form_mapping_v3_updated.json",
-                r"C:\forms\macs_form_mapping_v3.json",
-                os.path.join(os.path.dirname(__file__), "macs_form_mapping_v3.json")
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path):
-                    self.mapping_file = path
-                    break
-            else:
-                self.mapping_file = possible_paths[0]  # Default to first option
+            # Use the mapping file from the script directory
+            self.mapping_file = os.path.join(os.path.dirname(__file__), "macs_form_mapping_v3.json")
         
         self.mapping = None
         self.load_mapping()
@@ -100,10 +89,8 @@ class EnhancedPDFFillerV2:
             print(f"DEBUG: Received data for {data.get('patient_name', 'Unknown')}", file=sys.stderr)
             print(f"DEBUG: Symptoms length: {len(data.get('symptoms', ''))}", file=sys.stderr)
             print(f"DEBUG: Medication length: {len(data.get('medication', ''))}", file=sys.stderr)
-            # Get PDF path
+            # Get PDF path from script directory
             pdf_path = os.path.join(os.path.dirname(__file__), self.mapping['pdf_file'])
-            if not os.path.exists(pdf_path):
-                pdf_path = r"C:\Users\info0\Downloads\blank.pdf"
             
             # Open PDF
             doc = fitz.open(pdf_path)
@@ -134,31 +121,40 @@ class EnhancedPDFFillerV2:
                             if box['page'] == page_num:
                                 # Special handling for multi-line fields
                                 if field_type == 'Patient Symptoms and Signs':
-                                    # Symptoms field - use moderate font size
-                                    rect = fitz.Rect(box['x1'] + 2, box['y1'] + 2, box['x2'] - 2, box['y2'] - 2)
-                                    # Try insert_textbox first
-                                    try:
-                                        page.insert_textbox(
-                                            rect,
-                                            str(value),
-                                            fontsize=9,  # Slightly larger font for symptoms
-                                            color=(0, 0, 0),
-                                            align=0  # Left align
+                                    # Symptoms field - use very small font to fit in 38px height
+                                    box_width = box['x2'] - box['x1']
+                                    box_height = box['y2'] - box['y1']
+                                    print(f"DEBUG: Symptoms box dimensions: {box_width}x{box_height}", file=sys.stderr)
+                                    print(f"DEBUG: Attempting to fill symptoms with {len(str(value))} characters", file=sys.stderr)
+                                    
+                                    # Use manual text placement for better control
+                                    # With 38px height and font size 7, we can fit about 4 lines
+                                    font_size = 7
+                                    line_height = 8
+                                    padding = 3
+                                    
+                                    # Wrap text to fit width
+                                    lines = self._wrap_text(str(value), box_width - (padding * 2), font_size)
+                                    print(f"DEBUG: Wrapped into {len(lines)} lines", file=sys.stderr)
+                                    
+                                    # Calculate how many lines we can actually fit
+                                    max_lines = int((box_height - (padding * 2)) / line_height)
+                                    print(f"DEBUG: Can fit {max_lines} lines in box", file=sys.stderr)
+                                    
+                                    # Draw the lines that fit
+                                    y_pos = box['y1'] + padding + font_size
+                                    for i, line in enumerate(lines[:max_lines]):
+                                        page.insert_text(
+                                            (box['x1'] + padding, y_pos),
+                                            line,
+                                            fontsize=font_size,
+                                            color=(0, 0, 0)
                                         )
-                                    except:
-                                        # Fallback: manually wrap text
-                                        lines = self._wrap_text(str(value), box['x2'] - box['x1'] - 10, 9)
-                                        y_start = box['y1'] + 8
-                                        line_height = 11
-                                        
-                                        for i, line in enumerate(lines):
-                                            if y_start + (i * line_height) < box['y2'] - 5:
-                                                page.insert_text(
-                                                    (box['x1'] + 5, y_start + (i * line_height)),
-                                                    line,
-                                                    fontsize=9,
-                                                    color=(0, 0, 0)
-                                                )
+                                        y_pos += line_height
+                                    
+                                    # If text was truncated, add ellipsis
+                                    if len(lines) > max_lines:
+                                        print(f"DEBUG: Text truncated - {len(lines) - max_lines} lines omitted", file=sys.stderr)
                                 elif field_type == 'medication':
                                     # Medication field - use smaller font for more text
                                     rect = fitz.Rect(box['x1'] + 2, box['y1'] + 2, box['x2'] - 2, box['y2'] - 2)
@@ -238,8 +234,9 @@ class EnhancedPDFFillerV2:
         lines = []
         current_line = []
         
-        # Approximate character width (adjust as needed)
-        char_width = font_size * 0.5
+        # Better character width approximation
+        # For smaller fonts (7-8pt), character width is about 0.4 of font size
+        char_width = font_size * 0.4
         max_chars = int(max_width / char_width)
         
         for word in words:

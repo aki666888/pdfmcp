@@ -536,8 +536,7 @@ Condition Mode:
                     # Try different paths
                     possible_paths = [
                         os.path.join(os.path.dirname(file_path), pdf_name),
-                        os.path.join(os.path.dirname(__file__), pdf_name),
-                        r"C:\Users\info0\Downloads\blank.pdf"
+                        os.path.join(os.path.dirname(__file__), pdf_name)
                     ]
                     
                     for pdf_path in possible_paths:
@@ -547,6 +546,9 @@ Condition Mode:
                             self.current_page = 0
                             self.display_page()
                             break
+                    else:
+                        # If PDF not found, just show a message
+                        messagebox.showinfo("PDF Not Found", f"Could not find '{pdf_name}'. Please load the PDF manually.")
                 
                 self.status_var.set(f"Loaded: {os.path.basename(file_path)}")
             except Exception as e:

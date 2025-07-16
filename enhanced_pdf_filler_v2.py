@@ -225,8 +225,8 @@ def handle_pdf_request(data):
             form_data['patient_name'] = data['patient_name']
         if 'doctor_name' in data:
             form_data['doctor_name'] = data['doctor_name']
-        if 'date' in data:
-            form_data['date'] = data['date']
+        # Always add date - use provided date or today's date
+        form_data['date'] = data.get('date', datetime.now().strftime('%Y-%m-%d'))
         if 'symptoms' in data:
             form_data['symptoms'] = data['symptoms']
         

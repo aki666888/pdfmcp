@@ -1,5 +1,5 @@
 {
-  "pdf_file": "blank2.pdf",
+  "pdf_file": "blank.pdf",
   "fields": {
     "patient_name": [
       {
@@ -37,7 +37,7 @@
         "y2": 737.0
       }
     ],
-    "Patient Symptoms and Signs": [
+    "symptoms": [
       {
         "page": 0,
         "x1": 27.0,

@@ -1,67 +1,209 @@
 #!/usr/bin/env python3
 """
-Enhanced PDF Filler V2 - Works with numbered condition boxes
-Claude Desktop can specify condition numbers instead of names
+Enhanced PDF Filler V2 - Proper Text Wrapping Fix
+Using correct PyMuPDF insert_textbox syntax for reliable wrapping
 """
-
 import os
 import json
 import fitz  # PyMuPDF
 from datetime import datetime
-import sys
+import logging
 
-class EnhancedPDFFillerV2:
-    def __init__(self, mapping_file=None):
-        """Initialize with mapping file"""
-        # Check multiple locations for the mapping file
-        if mapping_file:
-            self.mapping_file = mapping_file
-        else:
-            # Use the mapping file from the script directory
-            self.mapping_file = os.path.join(os.path.dirname(__file__), "macs_form_mapping_v3.json")
+class EnhancedPDFFiller:
+    def __init__(self):
+        # Setup logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+        self.logger = logging.getLogger(__name__)
+        
+        # Try to find mapping file
+        mapping_paths = [
+            r"C:\mcp-servers\pharmacare-form\macs_form_mapping_v3.json",
+            r"C:\forms\macs_form_mapping_v3_updated.json",
+            r"C:\forms\macs_form_mapping_v3.json",
+            "macs_form_mapping_v3_updated.json",
+            "macs_form_mapping_v3.json"
+        ]
         
         self.mapping = None
-        self.load_mapping()
+        for path in mapping_paths:
+            if os.path.exists(path):
+                self.logger.info(f"Loading mapping from: {path}")
+                with open(path, 'r') as f:
+                    self.mapping = json.load(f)
+                break
         
-    def load_mapping(self):
-        """Load the field mapping"""
-        if os.path.exists(self.mapping_file):
-            with open(self.mapping_file, 'r') as f:
-                self.mapping = json.load(f)
-                print(f"Loaded mapping from: {self.mapping_file}", file=sys.stderr)
-        else:
-            # Default mapping if file doesn't exist
-            print(f"Mapping file not found at: {self.mapping_file}, using defaults", file=sys.stderr)
-            self.mapping = {
-                'pdf_file': 'blank.pdf',
-                'fields': {},
-                'condition_boxes': [],
-                'font_size': 10,
-                'context': 'PharmaCare MACS form'
-            }
+        if not self.mapping:
+            raise FileNotFoundError("No mapping file found in any of the expected locations")
     
-    def highlight_condition_box(self, page, box_number):
-        """Highlight a condition box by number"""
-        # Find the condition box
-        for cond_box in self.mapping.get('condition_boxes', []):
-            if cond_box['number'] == box_number and cond_box['page'] == page.number:
-                x1, y1 = cond_box['x1'], cond_box['y1']
-                x2, y2 = cond_box['x2'], cond_box['y2']
+    def fill_form(self, data):
+        """Fill the PDF form with provided data"""
+        try:
+            # Determine PDF path
+            pdf_filename = self.mapping.get('pdf_file', 'blank.pdf')
+            pdf_paths = [
+                os.path.join(r"C:\mcp-servers\pharmacare-form", pdf_filename),
+                os.path.join(r"C:\forms", pdf_filename),
+                pdf_filename
+            ]
+            
+            pdf_path = None
+            for path in pdf_paths:
+                if os.path.exists(path):
+                    pdf_path = path
+                    break
+            
+            if not pdf_path:
+                raise FileNotFoundError(f"PDF file {pdf_filename} not found")
+            
+            self.logger.info(f"Opening PDF: {pdf_path}")
+            doc = fitz.open(pdf_path)
+            
+            # Handle condition boxes first
+            condition_numbers = data.get('condition_numbers', [])
+            if isinstance(condition_numbers, int):
+                condition_numbers = [condition_numbers]
+            elif isinstance(condition_numbers, str):
+                # Parse string like "1,3,5" or "1 3 5"
+                condition_numbers = [int(x.strip()) for x in condition_numbers.replace(',', ' ').split() if x.strip().isdigit()]
+            
+            # Highlight condition boxes
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                for box_num in condition_numbers:
+                    self._highlight_condition_box(page, box_num)
+            
+            # Process each field
+            for field_name, field_data in data.items():
+                if field_name in self.mapping['fields']:
+                    self._fill_field(doc, field_name, field_data)
+            
+            # Save output
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Extract patient first name for folder creation
+            patient_name = data.get('patient_name', 'Unknown')
+            # Handle "LastName, FirstName" format
+            if ',' in patient_name:
+                last_name, first_name = patient_name.split(',', 1)
+                first_name = first_name.strip()
+            else:
+                # If no comma, use first word as folder name
+                first_name = patient_name.split()[0] if patient_name.split() else patient_name
+            
+            # Create output directory
+            output_dir = r"C:\forms"
+            patient_dir = os.path.join(output_dir, first_name)
+            os.makedirs(patient_dir, exist_ok=True)
+            
+            # Generate filename with full patient name
+            safe_patient_name = patient_name.replace(' ', '_').replace(',', '')
+            output_filename = f"{safe_patient_name}_{timestamp}.pdf"
+            output_path = os.path.join(patient_dir, output_filename)
+            
+            doc.save(output_path)
+            doc.close()
+            
+            self.logger.info(f"Form saved to: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            self.logger.error(f"Error filling form: {str(e)}")
+            raise
+    
+    def _fill_field(self, doc, field_name, value):
+        """Fill a specific field with proper text wrapping"""
+        field_coords = self.mapping['fields'].get(field_name, [])
+        
+        for coord in field_coords:
+            page_num = coord['page']
+            page = doc[page_num]
+            
+            # Create rectangle from coordinates
+            rect = fitz.Rect(coord['x1'], coord['y1'], coord['x2'], coord['y2'])
+            
+            # Special handling for different field types
+            if field_name == "symptoms":
+                # For symptoms field - smaller font, tighter spacing
+                fontsize = 6
+                # Try to insert text with automatic wrapping
+                rc = page.insert_textbox(
+                    rect,
+                    str(value),
+                    fontname="helv",
+                    fontsize=fontsize,
+                    align=fitz.TEXT_ALIGN_LEFT
+                )
                 
-                # Method 1: Draw a yellow filled rectangle
-                rect = fitz.Rect(x1, y1, x2, y2)
-                # Note: PyMuPDF doesn't support opacity in draw_rect, so we use annotation instead
-                highlight = page.add_highlight_annot(rect)
-                highlight.set_colors(stroke=(1, 1, 0))  # Yellow
-                highlight.update()
+                # If text doesn't fit, try progressively smaller font sizes
+                while rc < 0 and fontsize > 4:
+                    fontsize -= 0.5
+                    rc = page.insert_textbox(
+                        rect,
+                        str(value),
+                        fontname="helv",
+                        fontsize=fontsize,
+                        align=fitz.TEXT_ALIGN_LEFT
+                    )
                 
-                # Method 2: Draw a thicker red border
-                page.draw_rect(rect, color=(1, 0, 0), width=3)
-                
-                # Method 3: Add a checkmark or indicator
-                # Draw a large checkmark
-                check_x = x1 + (x2 - x1) * 0.2
-                check_y = y1 + (y2 - y1) * 0.5
+                if rc < 0:
+                    # If still doesn't fit, truncate and add ellipsis
+                    truncated = self._truncate_text(str(value), rect, page, fontsize)
+                    page.insert_textbox(
+                        rect,
+                        truncated,
+                        fontname="helv",
+                        fontsize=fontsize,
+                        align=fitz.TEXT_ALIGN_LEFT
+                    )
+                    self.logger.warning(f"Text truncated for field {field_name}")
+                    
+            elif field_name in ["date", "doctor_name", "patient_name"]:
+                # Regular fields - normal font size
+                page.insert_textbox(
+                    rect,
+                    str(value),
+                    fontname="helv",
+                    fontsize=10,
+                    align=fitz.TEXT_ALIGN_LEFT
+                )
+            else:
+                # Default handling
+                page.insert_textbox(
+                    rect,
+                    str(value),
+                    fontname="helv",
+                    fontsize=8,
+                    align=fitz.TEXT_ALIGN_LEFT
+                )
+    
+    def _truncate_text(self, text, rect, page, fontsize):
+        """Truncate text to fit within rectangle"""
+        # Try progressively shorter text until it fits
+        truncated = text
+        while len(truncated) > 10:
+            test_text = truncated[:-10] + "..."
+            rc = page.insert_textbox(
+                rect,
+                test_text,
+                fontname="helv",
+                fontsize=fontsize,
+                align=fitz.TEXT_ALIGN_LEFT
+            )
+            if rc >= 0:
+                return test_text
+            truncated = truncated[:-10]
+        return truncated[:10] + "..."
+    
+    def _highlight_condition_box(self, page, box_number):
+        """Highlight a specific condition box by number"""
+        for box in self.mapping.get('condition_boxes', []):
+            if box['number'] == box_number:
+                # Draw a red checkmark in the box
+                check_x = box['x1'] + 5
+                check_y = box['y1'] + 20
                 
                 # First stroke of checkmark
                 page.draw_line(
@@ -81,226 +223,57 @@ class EnhancedPDFFillerV2:
                 
                 return True
         return False
-    
-    def fill_pdf(self, data):
-        """Fill PDF with field data and highlighted conditions"""
-        try:
-            # Debug: Log received data
-            print(f"DEBUG: Received data for {data.get('patient_name', 'Unknown')}", file=sys.stderr)
-            print(f"DEBUG: Symptoms length: {len(data.get('symptoms', ''))}", file=sys.stderr)
-            print(f"DEBUG: Medication length: {len(data.get('medication', ''))}", file=sys.stderr)
-            # Get PDF path from script directory
-            pdf_path = os.path.join(os.path.dirname(__file__), self.mapping['pdf_file'])
-            
-            # Open PDF
-            doc = fitz.open(pdf_path)
-            
-            # Handle condition numbers
-            condition_numbers = data.get('condition_numbers', [])
-            if isinstance(condition_numbers, int):
-                condition_numbers = [condition_numbers]
-            elif isinstance(condition_numbers, str):
-                # Parse string like "1,3,5" or "1 3 5"
-                condition_numbers = [int(x.strip()) for x in condition_numbers.replace(',', ' ').split() if x.strip().isdigit()]
-            
-            # Process each page
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                
-                # Highlight condition boxes
-                for box_num in condition_numbers:
-                    self.highlight_condition_box(page, box_num)
-                
-                # Fill field boxes
-                for field_type, boxes in self.mapping.get('fields', {}).items():
-                    # Get value for this field
-                    value = self._get_field_value(field_type, data)
-                    
-                    if value:
-                        for box in boxes:
-                            if box['page'] == page_num:
-                                # Special handling for multi-line fields
-                                if field_type == 'Patient Symptoms and Signs':
-                                    # Symptoms field - use font size 8 for better fitting
-                                    box_width = box['x2'] - box['x1']
-                                    box_height = box['y2'] - box['y1']
-                                    print(f"DEBUG: Symptoms box dimensions: {box_width}x{box_height}", file=sys.stderr)
-                                    print(f"DEBUG: Symptoms value: {value[:100]}...", file=sys.stderr)
-                                    
-                                    # Manual text placement for 38px height box
-                                    font_size = 8
-                                    line_height = 9
-                                    padding = 3
-                                    
-                                    # Wrap text to fit width
-                                    lines = self._wrap_text(str(value), box_width - (padding * 2), font_size)
-                                    print(f"DEBUG: Wrapped into {len(lines)} lines", file=sys.stderr)
-                                    
-                                    # Calculate how many lines we can fit (38px height, 8pt font)
-                                    max_lines = int((box_height - (padding * 2)) / line_height)
-                                    print(f"DEBUG: Can fit {max_lines} lines in box", file=sys.stderr)
-                                    
-                                    # Draw the lines that fit
-                                    y_pos = box['y1'] + padding + font_size
-                                    for i, line in enumerate(lines[:max_lines]):
-                                        page.insert_text(
-                                            (box['x1'] + padding, y_pos),
-                                            line,
-                                            fontsize=font_size,
-                                            color=(0, 0, 0)
-                                        )
-                                        y_pos += line_height
-                                        print(f"DEBUG: Drew line {i+1}: {line[:50]}...", file=sys.stderr)
-                                elif field_type == 'medication':
-                                    # Medication field - use smaller font for more text
-                                    rect = fitz.Rect(box['x1'] + 2, box['y1'] + 2, box['x2'] - 2, box['y2'] - 2)
-                                    # Try insert_textbox first
-                                    try:
-                                        page.insert_textbox(
-                                            rect,
-                                            str(value),
-                                            fontsize=8,  # Smaller font for medication details
-                                            color=(0, 0, 0),
-                                            align=0  # Left align
-                                        )
-                                    except:
-                                        # Fallback: manually wrap text
-                                        lines = self._wrap_text(str(value), box['x2'] - box['x1'] - 10, 8)
-                                        y_start = box['y1'] + 8
-                                        line_height = 10
-                                        
-                                        for i, line in enumerate(lines):
-                                            if y_start + (i * line_height) < box['y2'] - 5:
-                                                page.insert_text(
-                                                    (box['x1'] + 5, y_start + (i * line_height)),
-                                                    line,
-                                                    fontsize=8,
-                                                    color=(0, 0, 0)
-                                                )
-                                else:
-                                    # Single line text for other fields
-                                    x = box['x1'] + 5
-                                    y = box['y1'] + (box['y2'] - box['y1']) / 2 + 5
-                                    
-                                    # Insert text
-                                    page.insert_text(
-                                        (x, y),
-                                        str(value),
-                                        fontsize=self.mapping.get('font_size', 10),
-                                        color=(0, 0, 0)
-                                    )
-            
-            # Create simple filename: name_date.pdf
-            patient_name = data.get("patient_name", "Unknown")
-            # Get first name from "Last, First" or "First Last" format
-            if ',' in patient_name:
-                first_name = patient_name.split(',')[-1].strip()
-            else:
-                first_name = patient_name.split()[0] if patient_name.split() else "Unknown"
-            
-            # Clean filename
-            first_name = "".join(c for c in first_name if c.isalnum() or c in ('-', '_')).strip()
-            
-            # Create C:/forms directory if it doesn't exist
-            save_dir = "C:/forms"
-            os.makedirs(save_dir, exist_ok=True)
-            
-            # Save PDF with simple name_date format - add timestamp to avoid overwrites
-            date_str = datetime.now().strftime("%Y%m%d")
-            time_str = datetime.now().strftime("%H%M%S")
-            output_path = os.path.join(save_dir, f"{first_name}_{date_str}_{time_str}.pdf")
-            doc.save(output_path)
-            doc.close()
-            
-            return {
-                "success": True,
-                "pdf_path": output_path,
-                "conditions_highlighted": condition_numbers
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def _wrap_text(self, text, max_width, font_size):
-        """Simple text wrapping function"""
-        words = text.split()
-        lines = []
-        current_line = []
+
+def handle_pdf_request(data):
+    """Handle incoming PDF fill request"""
+    try:
+        filler = EnhancedPDFFiller()
         
-        # Better character width for font size 8
-        char_width = font_size * 0.4
-        max_chars = int(max_width / char_width)
+        # Extract form data
+        form_data = {}
+        if 'patient_name' in data:
+            form_data['patient_name'] = data['patient_name']
+        if 'doctor_name' in data:
+            form_data['doctor_name'] = data['doctor_name']
+        if 'date' in data:
+            form_data['date'] = data['date']
+        if 'symptoms' in data:
+            form_data['symptoms'] = data['symptoms']
         
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            if len(test_line) <= max_chars:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-                else:
-                    # Word is too long, split it
-                    lines.append(word[:max_chars])
-                    current_line = [word[max_chars:]]
+        # Add any other fields from data
+        for key, value in data.items():
+            if key not in form_data:
+                form_data[key] = value
         
-        if current_line:
-            lines.append(' '.join(current_line))
+        # Fill the form
+        output_path = filler.fill_form(form_data)
         
-        return lines
-    
-    def _get_field_value(self, field_type, data):
-        """Get value for a specific field type from data"""
-        # Map field names from the PDF to our data keys
-        field_mappings = {
-            'patient_name': 'patient_name',
-            'phn': 'phn',
-            'phone': 'phone',
-            'Patient Symptoms and Signs': 'symptoms',  # Map PDF field name to our data key
-            'medical_history': 'medical_history',
-            'diagnosis': 'diagnosis',
-            'medication': 'medication',
-            'date': 'date'
+        return {
+            "success": True,
+            "message": "Form filled successfully",
+            "output_path": output_path
         }
         
-        # Get the data key for this field type
-        data_key = field_mappings.get(field_type, field_type)
-        
-        # Get the value from data
-        if data_key == 'date' and data_key not in data:
-            return datetime.now().strftime("%Y-%m-%d")
-        
-        return data.get(data_key, '')
-
-# Quick function for MCP
-def fill_pdf_with_numbers(data):
-    """Fill PDF using numbered condition boxes"""
-    filler = EnhancedPDFFillerV2()
-    result = filler.fill_pdf(data)
-    
-    if result["success"]:
-        conditions = result.get("conditions_highlighted", [])
-        conditions_text = f"Conditions {', '.join(map(str, conditions))}" if conditions else "No conditions"
-        return f"Form saved successfully!\nPDF: {result['pdf_path']}\n{conditions_text} highlighted"
-    else:
-        return f"Error: {result['error']}"
+    except Exception as e:
+        logging.error(f"Error in handle_pdf_request: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
-    # Test with condition numbers
+    # Test with sample data
     test_data = {
-        "patient_name": "John Doe",
-        "phn": "9876543210",
-        "phone": "(250) 555-1234",
-        "condition_numbers": [2, 5, 8],  # Claude Desktop specifies box numbers
-        "symptoms": "Various symptoms",
-        "medical_history": "No known allergies",
-        "diagnosis": "Multiple conditions",
-        "medication": "As prescribed",
-        "date": "2024-01-14"
+        'patient_name': 'John Smith',
+        'doctor_name': 'Dr. Jane Wilson',
+        'date': '2024-03-20',
+        'symptoms': """Patient presents with severe headache lasting 3 days, accompanied by nausea and photophobia. 
+        Temperature 38.5°C, blood pressure 130/85. Patient reports difficulty sleeping and loss of appetite. 
+        Previous history of migraines but this episode is more severe than usual. No recent trauma or injury. 
+        Family history includes hypertension and diabetes. Currently taking ibuprofen 400mg as needed. 
+        Allergic to penicillin. Requests further evaluation and treatment options. 
+        Additional symptoms include dizziness when standing and mild neck stiffness."""
     }
     
-    result = fill_pdf_with_numbers(test_data)
-    print(result)
+    result = handle_pdf_request(test_data)
+    print(json.dumps(result, indent=2))

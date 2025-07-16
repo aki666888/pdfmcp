@@ -12,7 +12,7 @@ import os
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from enhanced_pdf_filler_v2 import fill_pdf_with_numbers
+from enhanced_pdf_filler_v2 import handle_pdf_request
 
 class JSONRPCHandler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -33,7 +33,7 @@ class JSONRPCHandler(BaseHTTPRequestHandler):
                 params = request.get('params', {})
                 
                 # Call the PDF filler
-                result = fill_pdf_with_numbers(params)
+                result = handle_pdf_request(params)
                 
                 # Send JSON-RPC response
                 response = {

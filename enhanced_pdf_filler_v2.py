@@ -83,25 +83,15 @@ class EnhancedPDFFiller:
             # Save output
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-            # Extract patient first name for folder creation
-            patient_name = data.get('patient_name', 'Unknown')
-            # Handle "LastName, FirstName" format
-            if ',' in patient_name:
-                last_name, first_name = patient_name.split(',', 1)
-                first_name = first_name.strip()
-            else:
-                # If no comma, use first word as folder name
-                first_name = patient_name.split()[0] if patient_name.split() else patient_name
-            
-            # Create output directory
+            # Create output directory if needed
             output_dir = r"C:\forms"
-            patient_dir = os.path.join(output_dir, first_name)
-            os.makedirs(patient_dir, exist_ok=True)
+            os.makedirs(output_dir, exist_ok=True)
             
             # Generate filename with full patient name
+            patient_name = data.get('patient_name', 'Unknown')
             safe_patient_name = patient_name.replace(' ', '_').replace(',', '')
             output_filename = f"{safe_patient_name}_{timestamp}.pdf"
-            output_path = os.path.join(patient_dir, output_filename)
+            output_path = os.path.join(output_dir, output_filename)
             
             doc.save(output_path)
             doc.close()

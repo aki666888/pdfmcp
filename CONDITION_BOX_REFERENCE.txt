@@ -1,0 +1,44 @@
+PHARMACARE MACS FORM - CONDITION BOX REFERENCE
+==============================================
+
+Box 1: Contraception
+Box 2: Acne
+Box 3: Allergic rhinitis
+Box 4: Conjunctivitis
+Box 5: [REMOVED - was Dermatitis header]
+Box 6: allergic/contact (sub-type of dermatitis)
+Box 7: atopic (sub-type of dermatitis)
+Box 8: diaper rash (sub-type of dermatitis)
+Box 9: seborrheic (sub-type of dermatitis)
+Box 10: Dysmenorrhea
+Box 11: Dyspepsia
+Box 12: Fungal infections
+Box 13: Onychomycosis
+Box 14: Tinea corporis infection
+Box 15: Tinea cruris infection
+Box 16: Tinea pedis infection
+Box 17: Gastroesophageal reflux disease
+Box 18: Headache
+Box 19: Nicotine dependence
+Box 20: Hemorrhoids
+Box 21: Herpes labialis
+Box 22: Impetigo
+Box 23: Oral ulcers
+Box 24: Oropharyngeal candidiasis
+Box 25: Musculoskeletal pain
+Box 26: Shingles
+Box 27: Threadworms or pinworms
+Box 28: Urinary tract infection
+Box 29: Urticaria, including insect bites
+Box 30: Vaginal candidiasis
+
+USAGE EXAMPLES:
+- For athlete's foot: Select box 16
+- For contact dermatitis: Select box 6
+- For UTI: Select box 28
+- For headache: Select box 18
+
+NOTES:
+- Box 5 has been removed as it was the "Dermatitis" header
+- Boxes 6-9 are sub-types of dermatitis
+- Multiple boxes can be selected for multiple conditions
